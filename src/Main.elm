@@ -3,11 +3,15 @@ module Main exposing (Msg(..), main, update, view)
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (onClick)
+import Html.Events exposing (..)
 
 
 main =
-    Browser.sandbox { init = 0, update = update, view = view }
+    Browser.sandbox { init = init, update = update, view = view }
+
+
+type alias Todo =
+    { id : Int, name : String, completed : Bool }
 
 
 type VisibilityFilter
@@ -17,52 +21,90 @@ type VisibilityFilter
 
 
 type Msg
-    = Increment
-    | Decrement
+    = AddTodo String
+    | UpdateText String
+    | ToggleTodo Int
+
+
+init =
+    { todos = [], text = "", lastId = 0 }
 
 
 update msg model =
     case msg of
-        Increment ->
-            model + 1
+        AddTodo text ->
+            let
+                newId =
+                    model.lastId + 1
 
-        Decrement ->
-            model - 1
+                newTodo =
+                    { id = newId, text = text, complete = False }
+            in
+            { model | todos = newTodo :: model.todos, lastId = newId }
+
+        UpdateText text ->
+            { model | text = text }
+
+        ToggleTodo id ->
+            { model
+                | todos =
+                    List.map
+                        (\t ->
+                            if t.id == id then
+                                { t | complete = not t.complete }
+
+                            else
+                                t
+                        )
+                        model.todos
+            }
 
 
 view model =
     div []
-        [ addTodo
-        , todoList
+        [ addTodo model.text
+        , todoList model.todos
         , footer
         ]
 
 
-addTodo =
+addTodo textValue =
     div []
-        [ input [] []
-        , button [ type_ "submit" ] [ text "Add Todo" ]
+        [ input [ onInput UpdateText, value textValue ] []
+        , button [ onClick <| AddTodo textValue ] [ text "Add Todo" ]
         ]
 
 
-todoList =
+todoList todos =
     ul []
-        [ todo
+        (List.map
+            todo
+            todos
+        )
+
+
+todo model =
+    li
+        [ style "text-decoration"
+            (if model.complete then
+                "line-through"
+
+             else
+                "none"
+            )
+        , onClick <| ToggleTodo model.id
         ]
-
-
-todo =
-    li [ style "text-decoration" "line-through" ] [ text "My todo" ]
+        [ text model.text ]
 
 
 footer =
     div []
         [ span [] [ text "Show:" ]
-        , filterLink ShowAll "All"
-        , filterLink ShowActive "Active"
-        , filterLink ShowCompleted "Completed"
+        , filterLink ShowAll "All" True
+        , filterLink ShowActive "Active" False
+        , filterLink ShowCompleted "Completed" False
         ]
 
 
-filterLink filter linkText =
-    button [ style "margin-left" "4px", disabled True ] [ text linkText ]
+filterLink filter linkText active =
+    button [ style "margin-left" "4px", disabled <| not active ] [ text linkText ]
